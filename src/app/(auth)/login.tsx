@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Palette, Spacing, Radii, Typography } from '@/constants/theme';
@@ -19,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 export default function LoginScreen() {
-  const { login, isLoading, user } = useAuth();
+  const { login, isLoading } = useAuth();
   const [username, setUsername] = useState('alex.morgan');
   const [password, setPassword] = useState('password123');
   const [showPassword, setShowPassword] = useState(false);

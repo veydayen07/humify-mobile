@@ -84,7 +84,7 @@ class BiometricService {
         // Scale to 0-100 percentage with baseline calibration
         const calibratedScore = Math.min(
           99.4,
-          Math.max(82.0, Number((baseVariance * 100).toFixed(1)))
+          Math.max(82.0, Number(((baseVariance * 0.7 + rawScore * 0.3) * 100).toFixed(1)))
         );
 
         return calibratedScore;

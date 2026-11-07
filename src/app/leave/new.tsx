@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Palette, Spacing, Radii, Typography } from '@/constants/theme';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { AlertModal } from '@/components/ui/AlertModal';
 import { api, LeaveType, LeaveBalance } from '@/services/api';

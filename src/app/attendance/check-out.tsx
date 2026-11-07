@@ -35,10 +35,19 @@ export default function CheckOutScreen() {
   const [modalMessage, setModalMessage] = useState('');
 
   useEffect(() => {
-    checkLocation();
+    let isMounted = true;
+    LocationService.validateGeofence(forceSimulateOffice).then((result) => {
+      if (isMounted) {
+        setLocationResult(result);
+        setIsCheckingLocation(false);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [forceSimulateOffice]);
 
-  const checkLocation = async () => {
+  const refreshLocation = async () => {
     setIsCheckingLocation(true);
     const result = await LocationService.validateGeofence(forceSimulateOffice);
     setLocationResult(result);
@@ -166,8 +175,18 @@ export default function CheckOutScreen() {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity onPress={checkLocation} style={styles.refreshLocBtn}>
+            <TouchableOpacity onPress={refreshLocation} style={styles.refreshLocBtn}>
               <Ionicons name="refresh" size={16} color={Palette.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.devTogglesRow}>
+            <TouchableOpacity
+              style={[styles.devToggle, forceSimulateOffice && styles.devToggleActive]}
+              onPress={() => setForceSimulateOffice(!forceSimulateOffice)}>
+              <Text style={styles.devToggleText}>
+                {forceSimulateOffice ? '✓ Lokasi: Kantor (18m)' : '✕ Lokasi: Riil GPS'}
+              </Text>
             </TouchableOpacity>
           </View>
         </Card>
@@ -301,6 +320,31 @@ const styles = StyleSheet.create({
   },
   refreshLocBtn: {
     padding: Spacing.two,
+  },
+  devTogglesRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+    paddingTop: Spacing.two,
+    borderTopWidth: 1,
+    borderTopColor: Palette.borderLight,
+  },
+  devToggle: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 4,
+    borderRadius: Radii.sm,
+    backgroundColor: Palette.background,
+    borderWidth: 1,
+    borderColor: Palette.border,
+  },
+  devToggleActive: {
+    backgroundColor: Palette.primarySurface,
+    borderColor: Palette.primary,
+  },
+  devToggleText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Palette.inkSecondary,
   },
   bottomBar: {
     marginTop: Spacing.two,

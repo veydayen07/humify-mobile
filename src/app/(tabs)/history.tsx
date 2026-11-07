@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -38,7 +38,7 @@ interface SummaryData {
 
 export default function AttendanceHistoryScreen() {
   const [selectedMonth, setSelectedMonth] = useState(11);
-  const [selectedYear, setSelectedYear] = useState(2026);
+  const [selectedYear] = useState(2026);
   const [summary, setSummary] = useState<SummaryData>({
     total_present: 18,
     total_late: 2,
@@ -46,13 +46,12 @@ export default function AttendanceHistoryScreen() {
     total_sick: 0,
   });
   const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   // Detail Modal
   const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null);
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
       const data = await api.getAttendanceHistory(selectedMonth, selectedYear);
       if (data) {
@@ -62,15 +61,14 @@ export default function AttendanceHistoryScreen() {
     } catch (e) {
       console.warn('Error fetching history:', e);
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [selectedMonth, selectedYear, summary]);
 
   useFocusEffect(
     useCallback(() => {
       fetchHistory();
-    }, [selectedMonth, selectedYear])
+    }, [fetchHistory])
   );
 
   const onRefresh = () => {

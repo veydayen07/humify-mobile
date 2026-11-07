@@ -19,7 +19,7 @@ export default function ManagerLeavesScreen() {
   const [items, setItems] = useState<ManagerLeaveApprovalItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     try {
       const data = await api.getManagerLeaveApprovals();
       setItems(data);
@@ -28,12 +28,12 @@ export default function ManagerLeavesScreen() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       fetchItems();
-    }, [])
+    }, [fetchItems])
   );
 
   const onRefresh = () => {

@@ -4,12 +4,9 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
-  Platform,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Palette, Spacing, Radii, Typography, OfficeLocationConfig } from '@/constants/theme';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -41,7 +38,6 @@ export default function CheckInScreen() {
 
   // Verification states
   const [isVerifying, setIsVerifying] = useState(false);
-  const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
 
   // Alert Modal states
   const [modalVisible, setModalVisible] = useState(false);
@@ -52,10 +48,19 @@ export default function CheckInScreen() {
 
   // Check location on mount
   useEffect(() => {
-    checkLocation();
+    let isMounted = true;
+    LocationService.validateGeofence(forceSimulateOffice).then((result) => {
+      if (isMounted) {
+        setLocationResult(result);
+        setIsCheckingLocation(false);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [forceSimulateOffice]);
 
-  const checkLocation = async () => {
+  const refreshLocation = async () => {
     setIsCheckingLocation(true);
     const result = await LocationService.validateGeofence(forceSimulateOffice);
     setLocationResult(result);
@@ -92,7 +97,6 @@ export default function CheckInScreen() {
         console.warn('Camera takePicture note, using fallback photo:', camErr);
       }
     }
-    setCapturedPhotoUri(photoUri);
 
     // 3. TensorFlow Face Biometric Verification
     try {
@@ -238,7 +242,7 @@ export default function CheckInScreen() {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity onPress={checkLocation} style={styles.refreshLocBtn}>
+            <TouchableOpacity onPress={refreshLocation} style={styles.refreshLocBtn}>
               <Ionicons name="refresh" size={16} color={Palette.primary} />
             </TouchableOpacity>
           </View>

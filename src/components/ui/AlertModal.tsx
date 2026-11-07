@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   TextInput,
 } from 'react-native';
 import { Palette, Spacing, Radii, Typography } from '@/constants/theme';

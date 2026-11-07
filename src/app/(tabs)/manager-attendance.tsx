@@ -22,7 +22,7 @@ export default function ManagerAttendanceScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     try {
       const data = await api.getManagerAttendanceReviews(searchQuery);
       setItems(data);
@@ -31,12 +31,12 @@ export default function ManagerAttendanceScreen() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [searchQuery]);
 
   useFocusEffect(
     useCallback(() => {
       fetchItems();
-    }, [searchQuery])
+    }, [fetchItems])
   );
 
   const onRefresh = () => {

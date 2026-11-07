@@ -43,7 +43,7 @@ export default function FaceRegistrationScreen() {
         if (photo?.uri) {
           setPreviewUri(photo.uri);
         }
-      } catch (err) {
+      } catch {
         setPreviewUri('mock-face-ref-uri');
       }
     } else {

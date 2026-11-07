@@ -30,7 +30,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       refreshTodayStatus();
-    }, [])
+    }, [refreshTodayStatus])
   );
 
   const onRefresh = async () => {

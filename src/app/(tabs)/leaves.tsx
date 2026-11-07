@@ -28,7 +28,7 @@ export default function LeavesScreen() {
   const [cancelingItem, setCancelingItem] = useState<LeaveRequest | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [balRes, reqRes] = await Promise.all([
         api.getLeaveBalances(),
@@ -41,12 +41,12 @@ export default function LeavesScreen() {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [activeFilter]);
 
   useFocusEffect(
     useCallback(() => {
       fetchData();
-    }, [activeFilter])
+    }, [fetchData])
   );
 
   const onRefresh = () => {
