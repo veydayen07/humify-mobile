@@ -6,6 +6,9 @@ const KEYS = {
   API_URL: 'humify_api_url',
   DEMO_MODE: 'humify_demo_mode',
   FACE_REFERENCE: 'humify_face_reference',
+  LEAVES: 'humify_leaves_list',
+  BALANCES: 'humify_leaves_balances',
+  TODAY_ATTENDANCE: 'humify_today_attendance',
 };
 
 export const StorageService = {
@@ -87,6 +90,57 @@ export const StorageService = {
       await AsyncStorage.setItem(KEYS.FACE_REFERENCE, photoUri);
     } catch (e) {
       console.warn('Storage setFaceReference error', e);
+    }
+  },
+
+  async getLeaves(): Promise<any[] | null> {
+    try {
+      const data = await AsyncStorage.getItem(KEYS.LEAVES);
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveLeaves(leaves: any[]): Promise<void> {
+    try {
+      await AsyncStorage.setItem(KEYS.LEAVES, JSON.stringify(leaves));
+    } catch (e) {
+      console.warn('Storage saveLeaves error', e);
+    }
+  },
+
+  async getBalances(): Promise<any[] | null> {
+    try {
+      const data = await AsyncStorage.getItem(KEYS.BALANCES);
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveBalances(balances: any[]): Promise<void> {
+    try {
+      await AsyncStorage.setItem(KEYS.BALANCES, JSON.stringify(balances));
+    } catch (e) {
+      console.warn('Storage saveBalances error', e);
+    }
+  },
+
+  async getTodayAttendance(): Promise<any | null> {
+    try {
+      const data = await AsyncStorage.getItem(KEYS.TODAY_ATTENDANCE);
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveTodayAttendance(att: any): Promise<void> {
+    try {
+      await AsyncStorage.setItem(KEYS.TODAY_ATTENDANCE, JSON.stringify(att));
+    } catch (e) {
+      console.warn('Storage saveTodayAttendance error', e);
     }
   },
 

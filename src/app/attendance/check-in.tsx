@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -12,7 +13,13 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { AlertModal } from '@/components/ui/AlertModal';
 import { AppHeader } from '@/components/ui/AppHeader';
-import { LocationService, LocationValidationResult } from '@/services/location';
+import {
+  LocationService,
+  LocationValidationResult,
+  setCustomOfficeLocation,
+  resetOfficeLocation,
+  getEffectiveOfficeLocation,
+} from '@/services/location';
 import { biometricService } from '@/services/biometric';
 import { api } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -27,14 +34,15 @@ const SHIFT_OPTIONS = [
 
 export default function CheckInScreen() {
   const { user, isShiftWorker, refreshTodayStatus } = useAuth();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cameraRef = useRef<any>(null);
 
   // Flow states
   const [selectedShiftId, setSelectedShiftId] = useState<number>(isShiftWorker ? 1 : 1);
   const [locationResult, setLocationResult] = useState<LocationValidationResult | null>(null);
   const [isCheckingLocation, setIsCheckingLocation] = useState(true);
-  const [forceSimulateOffice, setForceSimulateOffice] = useState(true); // Default true so test works anywhere!
+  const [forceSimulateOffice, setForceSimulateOffice] = useState(false); // Default to REAL GPS
+  const [isCustomOfficeActive, setIsCustomOfficeActive] = useState(false);
 
   // Verification states
   const [isVerifying, setIsVerifying] = useState(false);
@@ -46,7 +54,14 @@ export default function CheckInScreen() {
   const [modalMessage, setModalMessage] = useState('');
   const [simulateMismatch, setSimulateMismatch] = useState(false);
 
-  // Check location on mount
+  const fetchLocation = async (simulate = forceSimulateOffice) => {
+    setIsCheckingLocation(true);
+    const result = await LocationService.validateGeofence(simulate);
+    setLocationResult(result);
+    setIsCheckingLocation(false);
+  };
+
+  // Check real GPS on mount
   useEffect(() => {
     let isMounted = true;
     LocationService.validateGeofence(forceSimulateOffice).then((result) => {
@@ -60,11 +75,24 @@ export default function CheckInScreen() {
     };
   }, [forceSimulateOffice]);
 
-  const refreshLocation = async () => {
+  const handleRequestLocationPermission = async () => {
     setIsCheckingLocation(true);
-    const result = await LocationService.validateGeofence(forceSimulateOffice);
-    setLocationResult(result);
-    setIsCheckingLocation(false);
+    await LocationService.requestPermissions();
+    await fetchLocation();
+  };
+
+  const handleSetCurrentAsOffice = () => {
+    if (locationResult && locationResult.latitude !== 0) {
+      setCustomOfficeLocation(locationResult.latitude, locationResult.longitude, 'Lokasi Uji Presensi Anda');
+      setIsCustomOfficeActive(true);
+      fetchLocation(false);
+    }
+  };
+
+  const handleResetOffice = () => {
+    resetOfficeLocation();
+    setIsCustomOfficeActive(false);
+    fetchLocation(false);
   };
 
   const handleCaptureAndVerify = async () => {
@@ -84,7 +112,7 @@ export default function CheckInScreen() {
     setIsVerifying(true);
     let photoUri = 'mock-selfie-uri';
 
-    if (cameraRef.current && permission?.granted) {
+    if (cameraRef.current && cameraPermission?.granted) {
       try {
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.8,
@@ -150,6 +178,8 @@ export default function CheckInScreen() {
     }
   };
 
+  const currentOffice = getEffectiveOfficeLocation();
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader title="Check-in Presensi" showBack />
@@ -197,7 +227,7 @@ export default function CheckInScreen() {
 
         {/* Camera View with Face Oval Guide */}
         <View style={styles.cameraContainer}>
-          {permission?.granted ? (
+          {cameraPermission?.granted ? (
             <CameraView
               ref={cameraRef}
               style={styles.camera}
@@ -217,54 +247,110 @@ export default function CheckInScreen() {
             <View style={styles.permissionFallback}>
               <Ionicons name="camera-outline" size={48} color={Palette.muted} />
               <Text style={styles.permissionText}>Izin kamera diperlukan untuk verifikasi wajah</Text>
-              <Button title="Beri Izin Kamera" onPress={requestPermission} size="sm" />
+              <Button title="Beri Izin Kamera" onPress={requestCameraPermission} size="sm" />
             </View>
           )}
         </View>
 
-        {/* Geofence & Location Bar */}
+        {/* Geofence & Location Card with Real GPS & Permission Controls */}
         <Card style={styles.locationCard}>
-          <View style={styles.locationHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-              <Ionicons
-                name={locationResult?.inRange ? 'location' : 'alert-circle'}
-                size={20}
-                color={locationResult?.inRange ? Palette.success : Palette.danger}
-              />
+          {/* Permission Not Granted State */}
+          {locationResult && !locationResult.permissionGranted ? (
+            <View style={styles.permissionDeniedBox}>
+              <Ionicons name="warning" size={24} color={Palette.danger} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.locationTitle}>Validasi Geofence Kantor</Text>
-                <Text style={styles.locationSubtitle}>
-                  {isCheckingLocation
-                    ? 'Memeriksa koordinat GPS...'
-                    : locationResult?.inRange
-                    ? `Dalam Area Kantor (${locationResult.distanceMeters}m dari kantor)`
-                    : `Di Luar Area Kantor (${locationResult?.distanceMeters}m dari kantor)`}
+                <Text style={styles.permDeniedTitle}>Izin Lokasi Belum Aktif</Text>
+                <Text style={styles.permDeniedText}>
+                  Humify membutuhkan izin lokasi untuk memvalidasi radius kantor ({OfficeLocationConfig.radiusMeters} meter).
                 </Text>
               </View>
+              <Button
+                title="Beri Izin"
+                size="sm"
+                variant="danger"
+                onPress={handleRequestLocationPermission}
+              />
             </View>
-            <TouchableOpacity onPress={refreshLocation} style={styles.refreshLocBtn}>
-              <Ionicons name="refresh" size={16} color={Palette.primary} />
-            </TouchableOpacity>
-          </View>
+          ) : (
+            <>
+              <View style={styles.locationHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                  <View style={[styles.statusDot, { backgroundColor: locationResult?.inRange ? Palette.success : Palette.danger }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.locationTitle}>
+                      {isCheckingLocation
+                        ? 'Mencari Koordinat GPS...'
+                        : locationResult?.inRange
+                        ? 'Lokasi Dalam Radius Kantor'
+                        : 'Di Luar Radius Kantor'}
+                    </Text>
+                    <Text style={styles.locationSubtitle}>
+                      {isCheckingLocation
+                        ? 'Menghubungkan sensor GPS perangkat...'
+                        : `Jarak: ${
+                            locationResult?.distanceMeters !== undefined
+                              ? locationResult.distanceMeters >= 1000
+                                ? (locationResult.distanceMeters / 1000).toFixed(2) + ' km'
+                                : `${locationResult.distanceMeters} meter`
+                              : '-'
+                          } ke ${currentOffice.name} (Maks. ${currentOffice.radiusMeters}m)`}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => fetchLocation()} style={styles.refreshLocBtn}>
+                  <Ionicons name="refresh" size={18} color={Palette.primary} />
+                </TouchableOpacity>
+              </View>
 
-          {/* Dev Toggles for Testing Simulator */}
-          <View style={styles.devTogglesRow}>
-            <TouchableOpacity
-              style={[styles.devToggle, forceSimulateOffice && styles.devToggleActive]}
-              onPress={() => setForceSimulateOffice(!forceSimulateOffice)}>
-              <Text style={styles.devToggleText}>
-                {forceSimulateOffice ? '✓ Lokasi: Kantor (18m)' : '✕ Lokasi: Riil GPS'}
-              </Text>
-            </TouchableOpacity>
+              {/* Exact Real GPS Coordinates */}
+              {locationResult && locationResult.latitude !== 0 && (
+                <View style={styles.coordsRow}>
+                  <Ionicons name="navigate-circle-outline" size={14} color={Palette.inkSecondary} />
+                  <Text style={styles.coordsText}>
+                    GPS: {locationResult.latitude.toFixed(6)}, {locationResult.longitude.toFixed(6)}
+                    {locationResult.accuracy ? ` (±${locationResult.accuracy}m)` : ''}
+                  </Text>
+                </View>
+              )}
 
-            <TouchableOpacity
-              style={[styles.devToggle, simulateMismatch && styles.devToggleActive]}
-              onPress={() => setSimulateMismatch(!simulateMismatch)}>
-              <Text style={styles.devToggleText}>
-                {simulateMismatch ? '⚠️ Test Wajah Gagal: ON' : 'Test Wajah Gagal: OFF'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+              {/* Quick Testing Actions (Live Desk as Office or Simulation) */}
+              <View style={styles.devTogglesRow}>
+                <TouchableOpacity
+                  style={[styles.devToggle, isCustomOfficeActive && styles.devToggleActive]}
+                  onPress={isCustomOfficeActive ? handleResetOffice : handleSetCurrentAsOffice}>
+                  <Ionicons
+                    name={isCustomOfficeActive ? 'checkbox' : 'locate-outline'}
+                    size={14}
+                    color={isCustomOfficeActive ? '#FFF' : Palette.inkSecondary}
+                  />
+                  <Text style={[styles.devToggleText, isCustomOfficeActive && styles.devToggleTextActive]}>
+                    {isCustomOfficeActive ? 'Titik Ini: Kantor' : 'Set Lokasi Saya = Kantor'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.devToggle, forceSimulateOffice && styles.devToggleActive]}
+                  onPress={() => setForceSimulateOffice(!forceSimulateOffice)}>
+                  <Ionicons
+                    name={forceSimulateOffice ? 'checkmark-circle' : 'business-outline'}
+                    size={14}
+                    color={forceSimulateOffice ? '#FFF' : Palette.inkSecondary}
+                  />
+                  <Text style={[styles.devToggleText, forceSimulateOffice && styles.devToggleTextActive]}>
+                    {forceSimulateOffice ? 'Simulasi: Aktif' : 'Simulasi Kantor'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.devToggle, simulateMismatch && styles.devToggleDanger]}
+                  onPress={() => setSimulateMismatch(!simulateMismatch)}>
+                  <Text style={[styles.devToggleText, simulateMismatch && styles.devToggleTextActive]}>
+                    {simulateMismatch ? '⚠️ Fail Test' : 'Test Gagal'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </Card>
 
         {/* Action Button */}
@@ -312,7 +398,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   shiftSection: {
-    marginBottom: Spacing.three,
+    marginBottom: Spacing.two,
   },
   sectionHeader: {
     ...Typography.captionBold,
@@ -329,16 +415,16 @@ const styles = StyleSheet.create({
     borderColor: Palette.border,
     borderWidth: 1,
     borderRadius: Radii.md,
-    padding: Spacing.two + 2,
+    padding: Spacing.two,
     alignItems: 'center',
   },
   shiftOptionActive: {
-    backgroundColor: Palette.primarySurface,
     borderColor: Palette.primary,
+    backgroundColor: Palette.primarySurface,
   },
   shiftOptionTitle: {
     ...Typography.captionBold,
-    color: Palette.ink,
+    color: Palette.inkSecondary,
   },
   shiftOptionTitleActive: {
     color: Palette.primaryDark,
@@ -349,7 +435,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   shiftOptionHoursActive: {
-    color: Palette.primary,
+    color: Palette.primaryDark,
   },
   regularShiftBadge: {
     flexDirection: 'row',
@@ -359,11 +445,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Radii.md,
-    borderWidth: 1,
     borderColor: Palette.primaryBorder,
+    borderWidth: 1,
   },
   regularShiftText: {
-    ...Typography.bodyMedium,
+    ...Typography.captionBold,
     color: Palette.primaryDark,
   },
   cameraContainer: {
@@ -371,7 +457,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.xl,
     overflow: 'hidden',
     backgroundColor: '#000',
-    minHeight: 280,
+    minHeight: 260,
     marginBottom: Spacing.three,
   },
   camera: {
@@ -379,45 +465,44 @@ const styles = StyleSheet.create({
   },
   cameraOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   faceOval: {
     width: 200,
-    height: 250,
-    borderRadius: 100,
+    height: 270,
+    borderRadius: 135,
     borderWidth: 2,
-    borderColor: Palette.primaryLight,
-    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   faceOvalInner: {
-    width: 180,
-    height: 230,
-    borderRadius: 90,
+    width: 190,
+    height: 260,
+    borderRadius: 130,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderStyle: 'dashed',
+    borderColor: Palette.primaryLight,
   },
   overlayInstruction: {
     ...Typography.captionMedium,
-    color: Palette.white,
-    marginTop: Spacing.three,
-    backgroundColor: 'rgba(15,23,42,0.6)',
+    color: '#FFF',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     paddingHorizontal: Spacing.three,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: Radii.full,
+    marginTop: Spacing.three,
   },
   permissionFallback: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.four,
-    gap: Spacing.three,
+    gap: Spacing.two,
   },
   permissionText: {
-    ...Typography.body,
+    ...Typography.caption,
     color: Palette.muted,
     textAlign: 'center',
   },
@@ -430,45 +515,88 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
   locationTitle: {
-    ...Typography.captionBold,
+    ...Typography.bodyMedium,
+    fontWeight: '700',
     color: Palette.ink,
   },
   locationSubtitle: {
+    ...Typography.caption,
+    color: Palette.inkSecondary,
+    marginTop: 2,
+  },
+  coordsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Palette.borderLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radii.sm,
+    marginTop: 6,
+  },
+  coordsText: {
     ...Typography.tiny,
-    color: Palette.muted,
-    marginTop: 1,
+    color: Palette.inkSecondary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  permissionDeniedBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  permDeniedTitle: {
+    ...Typography.captionBold,
+    color: Palette.danger,
+  },
+  permDeniedText: {
+    ...Typography.tiny,
+    color: Palette.inkSecondary,
+    marginTop: 2,
   },
   refreshLocBtn: {
     padding: Spacing.two,
+    backgroundColor: Palette.primarySurface,
+    borderRadius: Radii.full,
   },
   devTogglesRow: {
     flexDirection: 'row',
     gap: Spacing.two,
-    marginTop: Spacing.two,
-    paddingTop: Spacing.two,
-    borderTopWidth: 1,
-    borderTopColor: Palette.borderLight,
+    marginTop: Spacing.three,
   },
   devToggle: {
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 4,
-    borderRadius: Radii.sm,
-    backgroundColor: Palette.background,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Palette.borderLight,
     borderWidth: 1,
     borderColor: Palette.border,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 5,
+    borderRadius: Radii.sm,
   },
   devToggleActive: {
-    backgroundColor: Palette.primarySurface,
+    backgroundColor: Palette.primary,
     borderColor: Palette.primary,
   },
+  devToggleDanger: {
+    backgroundColor: Palette.danger,
+    borderColor: Palette.danger,
+  },
   devToggleText: {
-    fontSize: 10,
-    fontWeight: '600',
+    ...Typography.tiny,
     color: Palette.inkSecondary,
+    fontWeight: '600',
+  },
+  devToggleTextActive: {
+    color: '#FFF',
   },
   bottomBar: {
     marginTop: Spacing.two,
   },
 });
-

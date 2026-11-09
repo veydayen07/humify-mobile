@@ -8,7 +8,11 @@
     "scheme": "humifymobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Humify memerlukan izin lokasi untuk memvalidasi radius presensi kantor (maksimal 100 meter).",
+        "NSCameraUsageDescription": "Humify memerlukan izin kamera untuk verifikasi biometrik wajah saat melakukan check-in dan check-out."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,6 +21,11 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -31,6 +40,18 @@
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Humify memerlukan izin lokasi untuk memastikan Anda berada dalam area kantor saat presensi."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Humify memerlukan izin kamera untuk verifikasi wajah saat presensi."
         }
       ]
     ],
