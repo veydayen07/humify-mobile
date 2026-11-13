@@ -1,32 +1,33 @@
-import React, { useState } from 'react';
+import { AlertModal } from "@/components/ui/AlertModal";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Palette, Radii, Spacing, Typography } from "@/constants/theme";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/services/api";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
-  TextInput,
   Image,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Palette, Spacing, Radii, Typography } from '@/constants/theme';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { AlertModal } from '@/components/ui/AlertModal';
-import { useAuth } from '@/context/AuthContext';
-import { api } from '@/services/api';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
-  const { user, faceRegistered, logout, switchDemoAccount, updateUser } = useAuth();
+  const { user, faceRegistered, logout, switchDemoAccount, updateUser } =
+    useAuth();
 
   // Edit contact modal
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [phone, setPhone] = useState(user?.employee?.phone || '');
-  const [email, setEmail] = useState(user?.employee?.email || '');
-  const [address, setAddress] = useState(user?.employee?.address || '');
+  const [phone, setPhone] = useState(user?.employee?.phone || "");
+  const [email, setEmail] = useState(user?.employee?.email || "");
+  const [address, setAddress] = useState(user?.employee?.address || "");
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Logout modal
@@ -35,9 +36,9 @@ export default function ProfileScreen() {
   const emp = user?.employee;
 
   const handleOpenEdit = () => {
-    setPhone(emp?.phone || '');
-    setEmail(emp?.email || '');
-    setAddress(emp?.address || '');
+    setPhone(emp?.phone || "");
+    setEmail(emp?.email || "");
+    setAddress(emp?.address || "");
     setEditModalVisible(true);
   };
 
@@ -64,21 +65,23 @@ export default function ProfileScreen() {
       setEditModalVisible(false);
     } catch (e: any) {
       setIsUpdating(false);
-      alert(e.message || 'Gagal memperbarui profil.');
+      alert(e.message || "Gagal memperbarui profil.");
     }
   };
 
   const handleLogout = async () => {
     setLogoutModalVisible(false);
     await logout();
-    router.replace('/(auth)/login');
+    router.replace("/(auth)/login");
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profil Saya</Text>
-        <Text style={styles.headerSubtitle}>Data kepegawaian dan informasi akun</Text>
+        <Text style={styles.headerSubtitle}>
+          Data kepegawaian dan informasi akun
+        </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -86,22 +89,29 @@ export default function ProfileScreen() {
         <Card style={styles.card}>
           <View style={styles.avatarRow}>
             {emp?.photo_url ? (
-              <Image source={{ uri: emp.photo_url }} style={styles.avatarImage} />
+              <Image
+                source={{ uri: emp.photo_url }}
+                style={styles.avatarImage}
+              />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Ionicons name="person" size={36} color={Palette.primary} />
               </View>
             )}
             <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{emp?.full_name || user?.username || 'Karyawan'}</Text>
-              <Text style={styles.empCode}>{emp?.employee_code || 'EMP-001'}</Text>
+              <Text style={styles.name}>
+                {emp?.full_name || user?.username || "Karyawan"}
+              </Text>
+              <Text style={styles.empCode}>
+                {emp?.employee_code || "EMP-001"}
+              </Text>
               <View style={styles.roleTag}>
                 <Text style={styles.roleTagText}>
-                  {user?.role === 'manager'
-                    ? 'Manager'
-                    : user?.role === 'admin_hr'
-                    ? 'Admin HRD'
-                    : 'Karyawan'}
+                  {user?.role === "manager"
+                    ? "Manager"
+                    : user?.role === "admin_hr"
+                      ? "Admin HRD"
+                      : "Karyawan"}
                 </Text>
               </View>
             </View>
@@ -114,27 +124,38 @@ export default function ProfileScreen() {
           {faceRegistered ? (
             <View style={styles.faceRegisteredBox}>
               <View style={styles.faceRegisteredHeader}>
-                <Ionicons name="shield-checkmark" size={20} color={Palette.success} />
-                <Text style={styles.faceRegisteredTitle}>Wajah Acuan Terdaftar & Aktif</Text>
+                <Ionicons
+                  name="shield-checkmark"
+                  size={20}
+                  color={Palette.success}
+                />
+                <Text style={styles.faceRegisteredTitle}>
+                  Wajah Acuan Terdaftar & Aktif
+                </Text>
               </View>
               <Text style={styles.faceRegisteredNote}>
-                Untuk menjaga integritas presensi, foto wajah acuan tidak dapat diubah sendiri. Untuk memperbarui foto wajah, silakan hubungi tim HRD.
+                Untuk menjaga integritas presensi, foto wajah acuan tidak dapat
+                diubah sendiri. Untuk memperbarui foto wajah, silakan hubungi
+                tim HRD.
               </Text>
             </View>
           ) : (
             <View style={styles.faceUnregisteredBox}>
               <View style={styles.faceRegisteredHeader}>
                 <Ionicons name="warning" size={20} color={Palette.warning} />
-                <Text style={styles.faceUnregisteredTitle}>Wajah Acuan Belum Terdaftar</Text>
+                <Text style={styles.faceUnregisteredTitle}>
+                  Wajah Acuan Belum Terdaftar
+                </Text>
               </View>
               <Text style={styles.faceRegisteredNote}>
-                Anda belum dapat melakukan presensi. Silakan daftarkan wajah acuan Anda terlebih dahulu.
+                Anda belum dapat melakukan presensi. Silakan daftarkan wajah
+                acuan Anda terlebih dahulu.
               </Text>
               <Button
                 title="Daftarkan Wajah Sekarang"
                 icon="camera"
                 size="sm"
-                onPress={() => router.push('/face-registration')}
+                onPress={() => router.push("/face-registration")}
                 style={{ marginTop: Spacing.two }}
               />
             </View>
@@ -147,21 +168,27 @@ export default function ProfileScreen() {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Departemen</Text>
-            <Text style={styles.infoValue}>{emp?.department?.name || 'Product Design'}</Text>
+            <Text style={styles.infoValue}>
+              {emp?.department?.name || "Product Design"}
+            </Text>
           </View>
 
           <View style={styles.divider} />
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Jabatan</Text>
-            <Text style={styles.infoValue}>{emp?.position?.name || 'Product Designer'}</Text>
+            <Text style={styles.infoValue}>
+              {emp?.position?.name || "Product Designer"}
+            </Text>
           </View>
 
           <View style={styles.divider} />
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Atasan Langsung</Text>
-            <Text style={styles.infoValue}>{emp?.supervisor?.full_name || 'Maya Chen'}</Text>
+            <Text style={styles.infoValue}>
+              {emp?.supervisor?.full_name || "Maya Chen"}
+            </Text>
           </View>
 
           <View style={styles.divider} />
@@ -169,8 +196,8 @@ export default function ProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Status Kerja</Text>
             <Text style={styles.infoValueBold}>
-              {emp?.employment_type === 'tetap' ? 'Karyawan Tetap' : 'Kontrak'} (
-              {emp?.employee_status || 'Aktif'})
+              {emp?.employment_type === "tetap" ? "Karyawan Tetap" : "Kontrak"}{" "}
+              ({emp?.employee_status || "Aktif"})
             </Text>
           </View>
 
@@ -179,7 +206,9 @@ export default function ProfileScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Kategori Jadwal</Text>
             <Text style={styles.infoValue}>
-              {emp?.is_shift_worker ? 'Shifting Worker' : 'Regular Office Hours'}
+              {emp?.is_shift_worker
+                ? "Shifting Worker"
+                : "Regular Office Hours"}
             </Text>
           </View>
         </Card>
@@ -189,60 +218,68 @@ export default function ProfileScreen() {
           <View style={styles.contactHeader}>
             <Text style={styles.sectionTitle}>Data Kontak Personal</Text>
             <TouchableOpacity onPress={handleOpenEdit} style={styles.editBtn}>
-              <Ionicons name="create-outline" size={16} color={Palette.primary} />
+              <Ionicons
+                name="create-outline"
+                size={16}
+                color={Palette.primary}
+              />
               <Text style={styles.editText}>Edit</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Nomor Telepon</Text>
-            <Text style={styles.infoValue}>{emp?.phone || '081234567001'}</Text>
+            <Text style={styles.infoValue}>{emp?.phone || "081234567001"}</Text>
           </View>
 
           <View style={styles.divider} />
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{emp?.email || 'alex.morgan@humify.test'}</Text>
+            <Text style={styles.infoValue}>
+              {emp?.email || "alex.morgan@humify.test"}
+            </Text>
           </View>
 
           <View style={styles.divider} />
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Alamat Domisili</Text>
-            <Text style={[styles.infoValue, { flex: 1, textAlign: 'right' }]}>
-              {emp?.address || 'Jl. Kemang Raya No. 15, Jakarta Selatan'}
+            <Text style={[styles.infoValue, { flex: 1, textAlign: "right" }]}>
+              {emp?.address || "Jl. Nakula 6"}
             </Text>
           </View>
         </Card>
 
         {/* Switch Account (Demo Simulator) */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Ganti Akun Demo (Uji Coba Cepat)</Text>
+          <Text style={styles.sectionTitle}>
+            Ganti Akun Demo (Uji Coba Cepat)
+          </Text>
           <View style={styles.demoButtonsGrid}>
             <Button
               title="Alex (Karyawan Regular)"
               variant="outline"
               size="sm"
-              onPress={() => switchDemoAccount('alex.morgan')}
+              onPress={() => switchDemoAccount("alex.morgan")}
             />
             <Button
               title="Budi (Shifting / No Face)"
               variant="outline"
               size="sm"
-              onPress={() => switchDemoAccount('budi.santoso')}
+              onPress={() => switchDemoAccount("budi.santoso")}
             />
             <Button
               title="Maya (Manager)"
               variant="outline"
               size="sm"
-              onPress={() => switchDemoAccount('maya.chen')}
+              onPress={() => switchDemoAccount("maya.chen")}
             />
             <Button
               title="Dewi (Admin HR)"
               variant="outline"
               size="sm"
-              onPress={() => switchDemoAccount('admin.hr')}
+              onPress={() => switchDemoAccount("admin.hr")}
             />
           </View>
         </Card>
@@ -364,8 +401,8 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
   avatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.four,
   },
   avatarImage: {
@@ -378,8 +415,8 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 32,
     backgroundColor: Palette.primarySurface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   name: {
     ...Typography.h3,
@@ -391,7 +428,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   roleTag: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     backgroundColor: Palette.primarySurface,
     paddingHorizontal: Spacing.two + 2,
     paddingVertical: 2,
@@ -400,7 +437,7 @@ const styles = StyleSheet.create({
   },
   roleTagText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
     color: Palette.primaryDark,
   },
   sectionTitle: {
@@ -416,8 +453,8 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   faceRegisteredHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     marginBottom: 4,
   },
@@ -442,9 +479,9 @@ const styles = StyleSheet.create({
     color: Palette.warningText,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 6,
   },
   infoLabel: {
@@ -465,13 +502,13 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   contactHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   editText: {
@@ -483,20 +520,20 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(15, 23, 42, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: Spacing.four,
   },
   modalContent: {
-    width: '100%',
+    width: "100%",
     maxWidth: 380,
     padding: Spacing.five,
   },
   modalTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: Spacing.four,
   },
   modalTitle: {
@@ -520,9 +557,8 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.background,
   },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: Spacing.two,
     marginTop: Spacing.three,
   },
 });
-

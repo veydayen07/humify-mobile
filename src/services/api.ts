@@ -148,7 +148,7 @@ const DEMO_USERS: Record<
       gender: "L",
       birth_place: "Bandung",
       birth_date: "1994-11-18",
-      address: "Jl. Kemang Raya No. 15, Jakarta Selatan",
+      address: "Jl. Nakula 6",
       photo_url:
         "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
       face_registered: true,
