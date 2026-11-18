@@ -15,14 +15,37 @@ export interface LocationValidationResult {
 }
 
 // Configurable office coordinates for developer / live testing
-let customOfficeCoords: { latitude: number; longitude: number; name?: string } | null = null;
+let customOfficeCoords: { latitude: number; longitude: number; name?: string; radiusMeters?: number } | null = null;
+let backendOfficeLoaded = false;
 
-export function setCustomOfficeLocation(lat: number, lon: number, name = 'Lokasi Kustom Anda') {
-  customOfficeCoords = { latitude: lat, longitude: lon, name };
+export function setCustomOfficeLocation(lat: number, lon: number, name = 'Lokasi Kustom Anda', radiusMeters?: number) {
+  customOfficeCoords = { latitude: lat, longitude: lon, name, radiusMeters };
+  backendOfficeLoaded = true;
 }
 
 export function resetOfficeLocation() {
   customOfficeCoords = null;
+  backendOfficeLoaded = false;
+}
+
+export async function syncOfficeLocationFromBackend() {
+  try {
+    const { api } = await import('@/services/api');
+    const loc = await api.getOfficeLocation();
+    if (loc && loc.latitude && loc.longitude) {
+      customOfficeCoords = {
+        name: loc.name,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        radiusMeters: loc.radius_meters || OfficeLocationConfig.radiusMeters,
+      };
+      backendOfficeLoaded = true;
+      return customOfficeCoords;
+    }
+  } catch {
+    // fallback
+  }
+  return null;
 }
 
 export function getEffectiveOfficeLocation() {
@@ -31,7 +54,7 @@ export function getEffectiveOfficeLocation() {
       name: customOfficeCoords.name || 'Lokasi Kustom Anda',
       latitude: customOfficeCoords.latitude,
       longitude: customOfficeCoords.longitude,
-      radiusMeters: OfficeLocationConfig.radiusMeters,
+      radiusMeters: customOfficeCoords.radiusMeters || OfficeLocationConfig.radiusMeters,
     };
   }
   return OfficeLocationConfig;
@@ -148,6 +171,9 @@ export const LocationService = {
     }
 
     const isEnabled = await this.isLocationEnabled();
+    if (!backendOfficeLoaded) {
+      await syncOfficeLocationFromBackend();
+    }
     const targetOffice = getEffectiveOfficeLocation();
 
     // 1. Check permissions

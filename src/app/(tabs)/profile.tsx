@@ -20,7 +20,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
-  const { user, faceRegistered, logout, switchDemoAccount, updateUser } =
+  const { user, faceRegistered, logout, switchDemoAccount, updateUser, isHR } =
     useAuth();
 
   // Edit contact modal
@@ -250,6 +250,28 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </Card>
+
+        {/* HR Tools Section */}
+        {isHR && (
+          <Card style={styles.card}>
+            <Text style={styles.sectionTitle}>Pengaturan Admin HR</Text>
+            <TouchableOpacity
+              style={styles.hrToolRow}
+              activeOpacity={0.7}
+              onPress={() => router.push('/office-location')}>
+              <View style={styles.hrToolIconWrap}>
+                <Ionicons name="location" size={20} color="#7C3AED" />
+              </View>
+              <View style={{ flex: 1, marginLeft: Spacing.three }}>
+                <Text style={styles.hrToolTitle}>Pengaturan Lokasi Kantor</Text>
+                <Text style={styles.hrToolSubtitle}>
+                  Atur koordinat GPS & radius kantor untuk semua departemen
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Palette.muted} />
+            </TouchableOpacity>
+          </Card>
+        )}
 
         {/* Switch Account (Demo Simulator) */}
         <Card style={styles.card}>
@@ -560,5 +582,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.two,
     marginTop: Spacing.three,
+  },
+  hrToolRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.three,
+  },
+  hrToolIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: Radii.md,
+    backgroundColor: "#F5F3FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  hrToolTitle: {
+    ...Typography.bodyBold,
+    color: Palette.ink,
+  },
+  hrToolSubtitle: {
+    ...Typography.caption,
+    color: Palette.muted,
+    marginTop: 2,
   },
 });

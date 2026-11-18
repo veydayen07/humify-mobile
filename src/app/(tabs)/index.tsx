@@ -13,13 +13,15 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/context/AuthContext';
+import { api, OfficeLocation } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
 export default function HomeScreen() {
-  const { user, todayStatus, refreshTodayStatus, faceRegistered, isManager } = useAuth();
+  const { user, todayStatus, refreshTodayStatus, faceRegistered, isManager, isHR } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [officeLocation, setOfficeLocation] = useState<OfficeLocation | null>(null);
 
   // Live digital clock
   useEffect(() => {
@@ -27,15 +29,27 @@ export default function HomeScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  const loadOfficeLocation = useCallback(async () => {
+    try {
+      const loc = await api.getOfficeLocation();
+      if (loc) {
+        setOfficeLocation(loc);
+      }
+    } catch {
+      // fallback to static config if offline
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       refreshTodayStatus();
-    }, [refreshTodayStatus])
+      loadOfficeLocation();
+    }, [refreshTodayStatus, loadOfficeLocation])
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refreshTodayStatus();
+    await Promise.all([refreshTodayStatus(), loadOfficeLocation()]);
     setRefreshing(false);
   };
 
@@ -114,7 +128,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.gpsIndicator}>
               <Ionicons name="location" size={14} color={Palette.primary} />
-              <Text style={styles.gpsText}>Radius 100m Kantor</Text>
+              <Text style={styles.gpsText}>Radius {officeLocation?.radius_meters || OfficeLocationConfig.radiusMeters}m Kantor</Text>
             </View>
           </View>
         </Card>
@@ -249,19 +263,53 @@ export default function HomeScreen() {
               <Text style={styles.shortcutLabel}>Review Tim</Text>
             </TouchableOpacity>
           )}
+
+          {isHR && (
+            <TouchableOpacity
+              style={styles.shortcutCard}
+              onPress={() => router.push('/office-location')}>
+              <View style={[styles.shortcutIconWrap, { backgroundColor: '#F5F3FF' }]}>
+                <Ionicons name="location-outline" size={22} color="#7C3AED" />
+              </View>
+              <Text style={styles.shortcutLabel}>Lokasi Kantor</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Office Location Info Card */}
         <Card style={styles.officeCard}>
           <View style={styles.officeHeader}>
-            <Ionicons name="business" size={20} color={Palette.primary} />
-            <Text style={styles.officeName}>{OfficeLocationConfig.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <Ionicons name="business" size={20} color={Palette.primary} />
+              <Text style={styles.officeName}>
+                {officeLocation?.name || OfficeLocationConfig.name}
+              </Text>
+            </View>
+            {isHR && (
+              <TouchableOpacity
+                onPress={() => router.push('/office-location')}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#F5F3FF',
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: Radii.full,
+                }}>
+                <Ionicons name="settings-outline" size={12} color="#7C3AED" />
+                <Text style={{ fontSize: 11, color: '#7C3AED', fontWeight: '600', marginLeft: 3 }}>
+                  Ubah
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
-          <Text style={styles.officeAddress}>{OfficeLocationConfig.address}</Text>
+          <Text style={styles.officeAddress}>
+            {officeLocation?.address || OfficeLocationConfig.address}
+          </Text>
           <View style={styles.geofenceBadge}>
             <Ionicons name="radio" size={14} color={Palette.primary} />
             <Text style={styles.geofenceBadgeText}>
-              Batas Maksimal Radius: {OfficeLocationConfig.radiusMeters} Meter
+              Batas Maksimal Radius: {officeLocation?.radius_meters || OfficeLocationConfig.radiusMeters} Meter
             </Text>
           </View>
         </Card>

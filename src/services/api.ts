@@ -130,6 +130,15 @@ export interface ManagerLeaveApprovalItem {
   remaining_balance: number;
 }
 
+export interface OfficeLocation {
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  updated_at?: string | null;
+}
+
 // -------------------------------------------------------------
 // DEMO / MOCK DATA FOR LOCAL TESTING
 // -------------------------------------------------------------
@@ -1251,6 +1260,53 @@ class ApiClient {
       success: true,
       message: "Foto acuan wajah berhasil didaftarkan.",
     };
+  }
+
+  // 6.1 Office Location Configuration (Dynamic HR Geofence)
+  async getOfficeLocation(): Promise<OfficeLocation> {
+    try {
+      const baseUrl = await this.getBaseUrl();
+      const headers = await this.getHeaders();
+      const res = await fetch(`${baseUrl}/office-location`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) return json.data as OfficeLocation;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch office location:", e);
+    }
+
+    return {
+      name: "Humify Head Office",
+      address: "Jl Nakula 6",
+      latitude: -6.2087634,
+      longitude: 106.845599,
+      radius_meters: 100,
+    };
+  }
+
+  // 6.2 Update Office Location (HR Role Only)
+  async updateOfficeLocation(params: {
+    latitude: number;
+    longitude: number;
+    radius_meters?: number;
+    name?: string;
+    address?: string;
+  }): Promise<any> {
+    const baseUrl = await this.getBaseUrl();
+    const headers = await this.getHeaders();
+    const res = await fetch(`${baseUrl}/office-location`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(params),
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      return data;
+    }
+
+    throw new Error(data.message || "Gagal memperbarui lokasi kantor.");
   }
 }
 

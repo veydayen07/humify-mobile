@@ -35,6 +35,7 @@ function RootNavigation() {
         <Stack.Screen name="attendance/result" options={{ headerShown: false }} />
         <Stack.Screen name="face-registration" options={{ headerShown: false }} />
         <Stack.Screen name="leave/new" options={{ headerShown: false }} />
+        <Stack.Screen name="office-location" options={{ headerShown: false }} />
         <Stack.Screen name="manager/attendance/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="manager/leave/[id]" options={{ headerShown: false }} />
       </Stack>
