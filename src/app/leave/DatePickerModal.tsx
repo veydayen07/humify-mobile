@@ -348,3 +348,5 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
 });
+
+export default DatePickerModal;

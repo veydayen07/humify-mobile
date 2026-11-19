@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { File, UploadType, type UploadResult } from "expo-file-system";
 import { StorageService } from "./storage";
 
 // export const DEFAULT_API_URL = 'http://10.0.2.2:8000/api/v1';
@@ -1323,30 +1324,27 @@ class ApiClient {
     };
   }
 
-  // Face Registration (First Time)
+  // Face Registration (First Time) via native FileSystem.uploadAsync (Bypasses FormData)
   async registerFacePhoto(photoUri: string): Promise<any> {
     const baseUrl = await this.getBaseUrl();
-    const headers = await this.getHeaders(true);
-    const formData = new FormData();
+    const token = await StorageService.getToken();
 
-    const uriParts = photoUri.split(".");
-    const rawExt = uriParts[uriParts.length - 1] || "jpg";
-    const fileType = rawExt.toLowerCase().includes("png") ? "png" : "jpg";
-    const mimeType = fileType === "png" ? "image/png" : "image/jpeg";
-    const cleanUri = Platform.OS === "android" ? photoUri : photoUri.replace("file://", "");
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
-    formData.append("face_photo", {
-      uri: cleanUri,
-      name: `face_ref_${Date.now()}.${fileType}`,
-      type: mimeType,
-    } as any);
-
-    let res: Response;
+    let uploadResult: UploadResult;
     try {
-      res = await fetch(`${baseUrl}/profile/face-reference`, {
-        method: "POST",
+      const file = new File(photoUri);
+      uploadResult = await file.upload(`${baseUrl}/profile/face-reference`, {
+        httpMethod: "POST",
+        uploadType: UploadType.MULTIPART,
+        fieldName: "face_photo",
+        mimeType: "image/jpeg",
         headers,
-        body: formData,
       });
     } catch (networkErr: any) {
       console.error("Network error during face photo upload:", networkErr);
@@ -1355,9 +1353,17 @@ class ApiClient {
       );
     }
 
-    const json = await res.json().catch(() => null);
+    let json: any = null;
+    try {
+      json = JSON.parse(uploadResult.body);
+    } catch {
+      // non-JSON response
+    }
 
-    if (res.ok && json?.success) {
+    const isSuccess =
+      uploadResult.status >= 200 && uploadResult.status < 300 && json?.success;
+
+    if (isSuccess) {
       const serverPhotoUrl = json.data?.face_reference_photo_url || photoUri;
 
       const user = await StorageService.getUser();
@@ -1371,7 +1377,7 @@ class ApiClient {
       return json;
     }
 
-    // FAKE-SUCCESS FALLBACK DIMATIKAN
+    // FAKE-SUCCESS FALLBACK DIMATIKAN: Laporkan error sebenarnya
     let errMsg = "Gagal mendaftarkan wajah ke server.";
     if (json?.message) {
       errMsg = json.message;
@@ -1379,12 +1385,12 @@ class ApiClient {
         const errorDetails = Object.values(json.errors).flat().join(", ");
         if (errorDetails) errMsg += ` (${errorDetails})`;
       }
-    } else if (res.status === 401) {
+    } else if (uploadResult.status === 401) {
       errMsg = "Sesi login kedaluwarsa atau token tidak valid. Silakan login ulang.";
-    } else if (res.status === 422) {
+    } else if (uploadResult.status === 422) {
       errMsg = "Format foto tidak diterima server. Pastikan foto berformat JPG/PNG.";
-    } else if (res.status) {
-      errMsg = `Server merespons error HTTP ${res.status}.`;
+    } else if (uploadResult.status) {
+      errMsg = `Server merespons error HTTP ${uploadResult.status}.`;
     }
 
     throw new Error(errMsg);
