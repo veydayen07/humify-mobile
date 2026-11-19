@@ -1,4 +1,3 @@
-import { Platform } from "react-native";
 import { File, UploadType, type UploadResult } from "expo-file-system";
 import { StorageService } from "./storage";
 
@@ -245,7 +244,7 @@ const DEMO_USERS: Record<
       is_shift_worker: false,
     },
   },
-  "adminhr": {
+  adminhr: {
     role: "admin_hr",
     employee: {
       id: "2e65ad1d-ed00-45c4-a79a-1796a676c217",
@@ -292,7 +291,7 @@ const DEMO_USERS: Record<
       is_shift_worker: false,
     },
   },
-  "karyawan": {
+  karyawan: {
     role: "karyawan",
     employee: {
       id: "7a03c9c7-0d5a-4636-9069-edfc1b72f964",
@@ -1386,9 +1385,11 @@ class ApiClient {
         if (errorDetails) errMsg += ` (${errorDetails})`;
       }
     } else if (uploadResult.status === 401) {
-      errMsg = "Sesi login kedaluwarsa atau token tidak valid. Silakan login ulang.";
+      errMsg =
+        "Sesi login kedaluwarsa atau token tidak valid. Silakan login ulang.";
     } else if (uploadResult.status === 422) {
-      errMsg = "Format foto tidak diterima server. Pastikan foto berformat JPG/PNG.";
+      errMsg =
+        "Format foto tidak diterima server. Pastikan foto berformat JPG/PNG.";
     } else if (uploadResult.status) {
       errMsg = `Server merespons error HTTP ${uploadResult.status}.`;
     }
