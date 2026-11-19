@@ -150,25 +150,31 @@ export default function LoginScreen() {
               <TouchableOpacity
                 style={[styles.demoPill, username === 'alex.morgan' && styles.demoPillActive]}
                 onPress={() => handleQuickFill('alex.morgan')}>
-                <Text style={styles.demoPillText}>Alex (Karyawan)</Text>
+                <Text style={styles.demoPillText}>Alex</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.demoPill, username === 'budi.santoso' && styles.demoPillActive]}
-                onPress={() => handleQuickFill('budi.santoso')}>
-                <Text style={styles.demoPillText}>Budi (Shifting/No Face)</Text>
+                style={[styles.demoPill, username === 'sarah.connor' && styles.demoPillActive]}
+                onPress={() => handleQuickFill('sarah.connor')}>
+                <Text style={styles.demoPillText}>Sarah (No Face)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.demoPill, username === 'karyawan' && styles.demoPillActive]}
+                onPress={() => handleQuickFill('karyawan')}>
+                <Text style={styles.demoPillText}>Karyawan</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.demoPill, username === 'maya.chen' && styles.demoPillActive]}
                 onPress={() => handleQuickFill('maya.chen')}>
-                <Text style={styles.demoPillText}>Maya (Manager)</Text>
+                <Text style={styles.demoPillText}>Maya (MGR)</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.demoPill, username === 'admin.hr' && styles.demoPillActive]}
-                onPress={() => handleQuickFill('admin.hr')}>
-                <Text style={styles.demoPillText}>Dewi (Admin HR)</Text>
+                style={[styles.demoPill, username === 'adminhr' && styles.demoPillActive]}
+                onPress={() => handleQuickFill('adminhr')}>
+                <Text style={styles.demoPillText}>Admin HR</Text>
               </TouchableOpacity>
             </View>
           </View>

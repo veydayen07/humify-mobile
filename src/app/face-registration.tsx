@@ -27,6 +27,7 @@ export default function FaceRegistrationScreen() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [base64Photo, setBase64Photo] = useState<string | null>(null);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'error' | 'success'>('success');
@@ -34,20 +35,35 @@ export default function FaceRegistrationScreen() {
   const [modalMessage, setModalMessage] = useState('');
 
   const handleCapture = async () => {
-    if (cameraRef.current && permission?.granted) {
+    if (!permission?.granted) {
+      const permRes = await requestPermission();
+      if (!permRes.granted) {
+        setModalType('error');
+        setModalTitle('Izin Kamera Ditolak');
+        setModalMessage('Aplikasi membutuhkan izin akses kamera untuk mendaftarkan wajah.');
+        setModalVisible(true);
+        return;
+      }
+    }
+
+    if (cameraRef.current) {
       try {
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.8,
-          skipProcessing: true,
+          quality: 0.7,
+          base64: true,
         });
         if (photo?.uri) {
           setPreviewUri(photo.uri);
+          setBase64Photo(photo.base64 || null);
+        } else {
+          throw new Error('Kamera tidak menghasilkan berkas gambar.');
         }
-      } catch {
-        setPreviewUri('mock-face-ref-uri');
+      } catch (err: any) {
+        setModalType('error');
+        setModalTitle('Gagal Mengambil Foto');
+        setModalMessage(err.message || 'Terjadi kesalahan saat memotret wajah.');
+        setModalVisible(true);
       }
-    } else {
-      setPreviewUri('mock-face-ref-uri');
     }
   };
 
@@ -66,14 +82,16 @@ export default function FaceRegistrationScreen() {
         return;
       }
 
-      await api.registerFacePhoto(previewUri);
+      const res = await api.registerFacePhoto(previewUri, base64Photo || undefined);
+      const serverPhotoUrl = res.data?.face_reference_photo_url || previewUri;
+
       if (user) {
         updateUser({
           ...user,
           employee: {
             ...user.employee,
             face_registered: true,
-            photo_url: previewUri,
+            photo_url: serverPhotoUrl,
           },
         });
       }
@@ -158,7 +176,10 @@ export default function FaceRegistrationScreen() {
               <Image source={{ uri: previewUri }} style={styles.previewImage} />
               <TouchableOpacity
                 style={styles.retakeFloatingBtn}
-                onPress={() => setPreviewUri(null)}>
+                onPress={() => {
+                  setPreviewUri(null);
+                  setBase64Photo(null);
+                }}>
                 <Ionicons name="refresh" size={18} color={Palette.white} />
                 <Text style={styles.retakeText}>Ambil Ulang</Text>
               </TouchableOpacity>

@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { StorageService } from "./storage";
 
 // export const DEFAULT_API_URL = 'http://10.0.2.2:8000/api/v1';
@@ -243,6 +244,78 @@ const DEMO_USERS: Record<
       is_shift_worker: false,
     },
   },
+  "adminhr": {
+    role: "admin_hr",
+    employee: {
+      id: "2e65ad1d-ed00-45c4-a79a-1796a676c217",
+      employee_code: "HR-001",
+      full_name: "Dewi Lestari",
+      email: "adminhr@humify.test",
+      phone: "081388889999",
+      gender: "P",
+      birth_place: "Yogyakarta",
+      birth_date: "1991-05-10",
+      address: "Jl. Sudirman No. 100, Jakarta",
+      photo_url: null,
+      face_registered: true,
+      department: { id: 1, name: "Human Resources" },
+      position: { id: 2, name: "HR Manager" },
+      supervisor: null,
+      employment_type: "tetap",
+      employee_status: "aktif",
+      is_shift_worker: false,
+    },
+  },
+  "sarah.connor": {
+    role: "karyawan",
+    employee: {
+      id: "ee86d41e-6886-4357-bb0c-596d5c0f0533",
+      employee_code: "EMP-005",
+      full_name: "Sarah Connor",
+      email: "sarah.connor@humify.test",
+      phone: "+62 812 3456 7005",
+      gender: "P",
+      birth_place: "Surabaya",
+      birth_date: "1996-04-12",
+      address: "Jl. Bangka IX No. 8, Jakarta Selatan",
+      photo_url: null,
+      face_registered: false,
+      department: { id: 4, name: "Product Design" },
+      position: { id: 6, name: "Product Designer" },
+      supervisor: {
+        id: "fca1a42e-d444-4e0a-9812-97ae47409eb2",
+        full_name: "Maya Chen",
+      },
+      employment_type: "tetap",
+      employee_status: "aktif",
+      is_shift_worker: false,
+    },
+  },
+  "karyawan": {
+    role: "karyawan",
+    employee: {
+      id: "7a03c9c7-0d5a-4636-9069-edfc1b72f964",
+      employee_code: "EMP-003",
+      full_name: "Budi Santoso",
+      email: "karyawan@humify.test",
+      phone: "081234567003",
+      gender: "L",
+      birth_place: "Surabaya",
+      birth_date: "1995-05-15",
+      address: "Jl. Fatmawati No. 8, Jakarta Selatan",
+      photo_url: null,
+      face_registered: false,
+      department: { id: 2, name: "Engineering Operations" },
+      position: { id: 3, name: "Shift Technician" },
+      supervisor: {
+        id: "fca1a42e-d444-4e0a-9812-97ae47409eb2",
+        full_name: "Maya Chen",
+      },
+      employment_type: "tetap",
+      employee_status: "aktif",
+      is_shift_worker: false,
+    },
+  },
 };
 
 // In-memory demo state for mock persistence
@@ -431,18 +504,25 @@ class ApiClient {
         },
         body: JSON.stringify({ username, password }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
         await StorageService.setToken(data.data.token);
         await StorageService.setUser(data.data.user);
         return data;
       }
       if (res.status === 401 || res.status === 422) {
-        throw new Error(data.message || "Username atau password salah.");
+        throw new Error(data?.message || "Username atau password salah.");
       }
-      throw new Error(data.message || "Login gagal.");
+      throw new Error(data?.message || `Login gagal (Status ${res.status}).`);
     } catch (networkErr: any) {
-      // Demo Fallback for offline testing
+      if (
+        networkErr.message &&
+        !networkErr.message.includes("Network request failed") &&
+        !networkErr.message.includes("Failed to fetch")
+      ) {
+        throw networkErr;
+      }
+      // Demo Fallback for offline testing only when network is down
       console.log(
         "Network request to backend failed, trying demo user accounts:",
         networkErr.message,
@@ -451,7 +531,7 @@ class ApiClient {
       if (demoUser && password === "password123") {
         const mockResponse = {
           success: true,
-          message: "Login berhasil (Demo Mode)",
+          message: "Login berhasil (Demo Mode - Offline)",
           data: {
             token: `demo-jwt-token-${username}-${Date.now()}`,
             token_type: "Bearer",
@@ -469,12 +549,7 @@ class ApiClient {
         return mockResponse;
       }
 
-      if (networkErr.message.includes("Username")) {
-        throw networkErr;
-      }
-      throw new Error(
-        "Username atau password salah (Ketik username demo: alex.morgan / maya.chen / budi.santoso, password: password123)",
-      );
+      throw networkErr;
     }
   }
 
@@ -1249,55 +1324,74 @@ class ApiClient {
   }
 
   // Face Registration (First Time)
-  async registerFacePhoto(photoUri: string): Promise<any> {
+  async registerFacePhoto(photoUri: string, base64Data?: string): Promise<any> {
+    const baseUrl = await this.getBaseUrl();
+    const headers = await this.getHeaders(true);
+    const formData = new FormData();
+
+    const uriParts = photoUri.split(".");
+    const rawExt = uriParts[uriParts.length - 1] || "jpg";
+    const fileType = rawExt.toLowerCase().includes("png") ? "png" : "jpg";
+    const mimeType = fileType === "png" ? "image/png" : "image/jpeg";
+    const cleanUri = Platform.OS === "ios" ? photoUri.replace("file://", "") : photoUri;
+
+    formData.append("face_photo", {
+      uri: cleanUri,
+      name: `face_ref_${Date.now()}.${fileType}`,
+      type: mimeType,
+    } as any);
+
+    if (base64Data) {
+      formData.append("face_photo_base64", base64Data);
+    }
+
+    let res: Response;
     try {
-      const baseUrl = await this.getBaseUrl();
-      const headers = await this.getHeaders(true);
-      const formData = new FormData();
-
-      const uriParts = photoUri.split(".");
-      const fileType = uriParts[uriParts.length - 1] || "jpg";
-      formData.append("face_photo", {
-        uri: photoUri,
-        name: `face_ref_${Date.now()}.${fileType}`,
-        type: `image/${fileType === "jpg" ? "jpeg" : fileType}`,
-      } as any);
-
-      const res = await fetch(`${baseUrl}/profile/face-reference`, {
+      res = await fetch(`${baseUrl}/profile/face-reference`, {
         method: "POST",
         headers,
         body: formData,
       });
+    } catch (networkErr: any) {
+      console.error("Network error during face photo upload:", networkErr);
+      throw new Error(
+        `Koneksi ke server gagal: ${networkErr.message || "Periksa jaringan internet Anda."}`,
+      );
+    }
 
-      if (res.ok) {
-        const json = await res.json();
-        const serverPhotoUrl = json.data?.face_reference_photo_url || photoUri;
+    const json = await res.json().catch(() => null);
 
-        const user = await StorageService.getUser();
-        if (user && user.employee) {
-          user.employee.face_registered = true;
-          user.employee.photo_url = serverPhotoUrl;
-          await StorageService.setUser(user);
-          await StorageService.setFaceReference(photoUri);
-        }
+    if (res.ok && json?.success) {
+      const serverPhotoUrl = json.data?.face_reference_photo_url || photoUri;
 
-        return json;
+      const user = await StorageService.getUser();
+      if (user && user.employee) {
+        user.employee.face_registered = true;
+        user.employee.photo_url = serverPhotoUrl;
+        await StorageService.setUser(user);
+        await StorageService.setFaceReference(serverPhotoUrl);
       }
-    } catch (err) {
-      console.warn("Failed to upload face reference to server, fallback local:", err);
+
+      return json;
     }
 
-    const user = await StorageService.getUser();
-    if (user && user.employee) {
-      user.employee.face_registered = true;
-      user.employee.photo_url = photoUri;
-      await StorageService.setUser(user);
-      await StorageService.setFaceReference(photoUri);
+    // FAKE-SUCCESS FALLBACK DIMATIKAN
+    let errMsg = "Gagal mendaftarkan wajah ke server.";
+    if (json?.message) {
+      errMsg = json.message;
+      if (json?.errors) {
+        const errorDetails = Object.values(json.errors).flat().join(", ");
+        if (errorDetails) errMsg += ` (${errorDetails})`;
+      }
+    } else if (res.status === 401) {
+      errMsg = "Sesi login kedaluwarsa atau token tidak valid. Silakan login ulang.";
+    } else if (res.status === 422) {
+      errMsg = "Format foto tidak diterima server. Pastikan foto berformat JPG/PNG.";
+    } else if (res.status) {
+      errMsg = `Server merespons error HTTP ${res.status}.`;
     }
-    return {
-      success: true,
-      message: "Foto acuan wajah berhasil didaftarkan.",
-    };
+
+    throw new Error(errMsg);
   }
 
   // 6.1 Office Location Configuration (Dynamic HR Geofence)
