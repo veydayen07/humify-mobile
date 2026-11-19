@@ -1,7 +1,8 @@
 import { StorageService } from "./storage";
 
 // export const DEFAULT_API_URL = 'http://10.0.2.2:8000/api/v1';
-export const DEFAULT_API_URL = "http://192.168.100.15:8000/api/v1";
+export const DEFAULT_API_URL =
+  "https://hris-humify-production.up.railway.app/api/v1";
 
 export interface UserEmployee {
   id: string;
