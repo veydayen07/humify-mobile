@@ -35,8 +35,9 @@ export function StatusBadge({ status, size = 'md' }: Props) {
 
   switch (norm) {
     case 'hadir':
+    case 'present':
     case 'disetujui':
-      label = norm === 'hadir' ? 'Hadir Tepat Waktu' : 'Disetujui';
+      label = norm === 'disetujui' ? 'Disetujui' : 'Hadir Tepat Waktu';
       bg = Palette.successSurface;
       text = Palette.successText;
       border = Palette.successBorder;
@@ -44,6 +45,7 @@ export function StatusBadge({ status, size = 'md' }: Props) {
       break;
 
     case 'terlambat':
+    case 'late':
       label = 'Terlambat';
       bg = Palette.warningSurface;
       text = Palette.warningText;
@@ -52,6 +54,7 @@ export function StatusBadge({ status, size = 'md' }: Props) {
       break;
 
     case 'pulang_cepat':
+    case 'early_leave':
       label = 'Pulang Cepat';
       bg = '#FEF3C7';
       text = '#B45309';
@@ -70,6 +73,7 @@ export function StatusBadge({ status, size = 'md' }: Props) {
       break;
 
     case 'ditolak':
+    case 'rejected':
       label = 'Ditolak';
       bg = Palette.dangerSurface;
       text = Palette.dangerText;
@@ -78,6 +82,7 @@ export function StatusBadge({ status, size = 'md' }: Props) {
       break;
 
     case 'dibatalkan':
+    case 'cancelled':
       label = 'Dibatalkan';
       bg = '#F1F5F9';
       text = Palette.muted;
@@ -86,6 +91,7 @@ export function StatusBadge({ status, size = 'md' }: Props) {
       break;
 
     case 'sakit':
+    case 'sick':
       label = 'Sakit';
       bg = '#F5F3FF';
       text = '#6D28D9';
@@ -94,6 +100,7 @@ export function StatusBadge({ status, size = 'md' }: Props) {
       break;
 
     case 'izin':
+    case 'permission':
       label = 'Izin';
       bg = '#EFF6FF';
       text = '#1D4ED8';
@@ -102,6 +109,7 @@ export function StatusBadge({ status, size = 'md' }: Props) {
       break;
 
     case 'cuti':
+    case 'leave':
       label = 'Cuti';
       bg = '#ECFDF5';
       text = '#047857';
