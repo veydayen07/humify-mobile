@@ -678,83 +678,103 @@ class ApiClient {
     face_photo_uri: string;
     face_score: number;
   }): Promise<any> {
-    const now = new Date();
-    const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
-
-    try {
-      const baseUrl = await this.getBaseUrl();
-      const headers = await this.getHeaders(true);
-      const formData = new FormData();
-      formData.append("latitude", String(params.latitude));
-      formData.append("longitude", String(params.longitude));
-      if (params.shift_id) formData.append("shift_id", String(params.shift_id));
-
-      const uriParts = params.face_photo_uri.split(".");
-      const fileType = uriParts[uriParts.length - 1];
-      formData.append("face_photo", {
-        uri: params.face_photo_uri,
-        name: `selfie_${Date.now()}.${fileType || "jpg"}`,
-        type: `image/${fileType || "jpeg"}`,
-      } as any);
-
-      const res = await fetch(`${baseUrl}/attendances/check-in`, {
-        method: "POST",
-        headers,
-        body: formData,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        mockHasCheckedIn = true;
-        mockTodayAttendance = {
-          id: data.data?.attendance_id || 101,
-          check_in_time: data.data?.check_in_time || timeStr,
-          check_out_time: null,
-          status: data.data?.status || "hadir",
-          late_minutes: data.data?.late_minutes || 0,
-          review_status: data.data?.review_status || "pending",
-          check_in_face_verified: true,
-          check_in_face_score: params.face_score,
-        };
-        await StorageService.saveTodayAttendance(mockTodayAttendance);
-        return data;
-      }
-    } catch {
-      // Fallback below
+    const baseUrl = await this.getBaseUrl();
+    const token = await StorageService.getToken();
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
     }
 
-    // Offline / Demo resilient check-in fallback
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const isLate = hours > 8 || (hours === 8 && minutes > 0);
-    const lateMins = isLate ? (hours - 8) * 60 + minutes : 0;
+    const isRealFile =
+      params.face_photo_uri &&
+      (params.face_photo_uri.startsWith("file://") ||
+        params.face_photo_uri.startsWith("content://") ||
+        params.face_photo_uri.startsWith("/"));
 
-    mockHasCheckedIn = true;
-    mockTodayAttendance = {
-      id: Math.floor(Math.random() * 900) + 100,
-      check_in_time: timeStr,
-      check_out_time: null,
-      status: isLate ? "terlambat" : "hadir",
-      late_minutes: lateMins,
-      review_status: "pending",
-      check_in_face_verified: true,
-      check_in_face_score: params.face_score,
-    };
-    await StorageService.saveTodayAttendance(mockTodayAttendance);
+    let json: any = null;
+    let statusCode = 200;
 
-    return {
-      success: true,
-      message: "Check-in berhasil tercatat.",
-      data: {
-        attendance_id: mockTodayAttendance.id,
-        attendance_date: now.toISOString().split("T")[0],
-        check_in_time: timeStr,
-        status: mockTodayAttendance.status,
-        late_minutes: lateMins,
-        face_score: params.face_score,
-        face_verified: true,
-        review_status: "pending",
-      },
-    };
+    if (isRealFile) {
+      try {
+        const file = new File(params.face_photo_uri);
+        const uploadResult = await file.upload(`${baseUrl}/attendances/check-in`, {
+          httpMethod: "POST",
+          uploadType: UploadType.MULTIPART,
+          fieldName: "face_photo",
+          mimeType: "image/jpeg",
+          headers,
+          parameters: {
+            latitude: String(params.latitude),
+            longitude: String(params.longitude),
+            ...(params.shift_id ? { shift_id: String(params.shift_id) } : {}),
+          },
+        });
+        statusCode = uploadResult.status;
+        try {
+          json = JSON.parse(uploadResult.body);
+        } catch {
+          // non-JSON response
+        }
+      } catch (err: any) {
+        console.error("Network error during check-in upload:", err);
+        throw new Error(
+          `Koneksi ke server gagal: ${err.message || "Periksa jaringan internet Anda."}`
+        );
+      }
+    } else {
+      try {
+        const res = await fetch(`${baseUrl}/attendances/check-in`, {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            latitude: params.latitude,
+            longitude: params.longitude,
+            ...(params.shift_id ? { shift_id: params.shift_id } : {}),
+          }),
+        });
+        statusCode = res.status;
+        try {
+          json = await res.json();
+        } catch {
+          // non-JSON
+        }
+      } catch (err: any) {
+        console.error("Network error during check-in fetch:", err);
+        throw new Error(
+          `Koneksi ke server gagal: ${err.message || "Periksa jaringan internet Anda."}`
+        );
+      }
+    }
+
+    if (statusCode >= 200 && statusCode < 300 && json?.success) {
+      mockHasCheckedIn = true;
+      mockTodayAttendance = {
+        id: json.data?.attendance_id || 101,
+        check_in_time: json.data?.check_in_time,
+        check_out_time: null,
+        status: json.data?.status || "hadir",
+        late_minutes: json.data?.late_minutes || 0,
+        review_status: json.data?.review_status || "pending",
+        check_in_face_verified: true,
+        check_in_face_score: params.face_score,
+      };
+      await StorageService.saveTodayAttendance(mockTodayAttendance);
+      return json;
+    }
+
+    let errorMsg = json?.message || "Check-in gagal tercatat di server.";
+    if (json?.errors) {
+      const errList = Object.values(json.errors).flat();
+      if (errList.length > 0) {
+        errorMsg = `${errorMsg} (${errList.join(", ")})`;
+      }
+    }
+    throw new Error(errorMsg);
   }
 
   // 3.3 Check-Out
@@ -764,71 +784,94 @@ class ApiClient {
     face_photo_uri: string;
     face_score: number;
   }): Promise<any> {
-    const now = new Date();
-    const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
-
-    try {
-      const baseUrl = await this.getBaseUrl();
-      const headers = await this.getHeaders(true);
-      const formData = new FormData();
-      formData.append("latitude", String(params.latitude));
-      formData.append("longitude", String(params.longitude));
-
-      const uriParts = params.face_photo_uri.split(".");
-      const fileType = uriParts[uriParts.length - 1];
-      formData.append("face_photo", {
-        uri: params.face_photo_uri,
-        name: `selfie_checkout_${Date.now()}.${fileType || "jpg"}`,
-        type: `image/${fileType || "jpeg"}`,
-      } as any);
-
-      const res = await fetch(`${baseUrl}/attendances/check-out`, {
-        method: "POST",
-        headers,
-        body: formData,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        mockHasCheckedOut = true;
-        if (mockTodayAttendance) {
-          mockTodayAttendance.check_out_time = timeStr;
-          await StorageService.saveTodayAttendance(mockTodayAttendance);
-        }
-        return data;
-      }
-    } catch {
-      // Fallback below
-    }
-
-    mockHasCheckedOut = true;
-    if (mockTodayAttendance) {
-      mockTodayAttendance.check_out_time = timeStr;
-    } else {
-      mockTodayAttendance = {
-        id: 143,
-        check_in_time: "08:00:00",
-        check_out_time: timeStr,
-        status: "hadir",
-        late_minutes: 0,
-        review_status: "pending",
-        check_in_face_verified: true,
-        check_in_face_score: params.face_score,
-      };
-    }
-    await StorageService.saveTodayAttendance(mockTodayAttendance);
-
-    return {
-      success: true,
-      message:
-        "Check-out berhasil tercatat. Terima kasih atas kerja keras Anda hari ini.",
-      data: {
-        attendance_id: mockTodayAttendance.id,
-        check_out_time: timeStr,
-        early_leave_minutes: 0,
-        work_minutes: 480,
-        face_verified: true,
-      },
+    const baseUrl = await this.getBaseUrl();
+    const token = await StorageService.getToken();
+    const headers: Record<string, string> = {
+      Accept: "application/json",
     };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const isRealFile =
+      params.face_photo_uri &&
+      (params.face_photo_uri.startsWith("file://") ||
+        params.face_photo_uri.startsWith("content://") ||
+        params.face_photo_uri.startsWith("/"));
+
+    let json: any = null;
+    let statusCode = 200;
+
+    if (isRealFile) {
+      try {
+        const file = new File(params.face_photo_uri);
+        const uploadResult = await file.upload(`${baseUrl}/attendances/check-out`, {
+          httpMethod: "POST",
+          uploadType: UploadType.MULTIPART,
+          fieldName: "face_photo",
+          mimeType: "image/jpeg",
+          headers,
+          parameters: {
+            latitude: String(params.latitude),
+            longitude: String(params.longitude),
+          },
+        });
+        statusCode = uploadResult.status;
+        try {
+          json = JSON.parse(uploadResult.body);
+        } catch {
+          // non-JSON response
+        }
+      } catch (err: any) {
+        console.error("Network error during check-out upload:", err);
+        throw new Error(
+          `Koneksi ke server gagal: ${err.message || "Periksa jaringan internet Anda."}`
+        );
+      }
+    } else {
+      try {
+        const res = await fetch(`${baseUrl}/attendances/check-out`, {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            latitude: params.latitude,
+            longitude: params.longitude,
+          }),
+        });
+        statusCode = res.status;
+        try {
+          json = await res.json();
+        } catch {
+          // non-JSON
+        }
+      } catch (err: any) {
+        console.error("Network error during check-out fetch:", err);
+        throw new Error(
+          `Koneksi ke server gagal: ${err.message || "Periksa jaringan internet Anda."}`
+        );
+      }
+    }
+
+    if (statusCode >= 200 && statusCode < 300 && json?.success) {
+      mockHasCheckedOut = true;
+      if (mockTodayAttendance) {
+        mockTodayAttendance.check_out_time = json.data?.check_out_time;
+        await StorageService.saveTodayAttendance(mockTodayAttendance);
+      }
+      return json;
+    }
+
+    let errorMsg = json?.message || "Check-out gagal tercatat di server.";
+    if (json?.errors) {
+      const errList = Object.values(json.errors).flat();
+      if (errList.length > 0) {
+        errorMsg = `${errorMsg} (${errList.join(", ")})`;
+      }
+    }
+    throw new Error(errorMsg);
   }
 
   // 3.4 History

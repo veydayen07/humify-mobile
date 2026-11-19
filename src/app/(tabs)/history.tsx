@@ -37,12 +37,13 @@ interface SummaryData {
 }
 
 export default function AttendanceHistoryScreen() {
-  const [selectedMonth, setSelectedMonth] = useState(11);
-  const [selectedYear] = useState(2026);
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [summary, setSummary] = useState<SummaryData>({
-    total_present: 18,
-    total_late: 2,
-    total_leave: 1,
+    total_present: 0,
+    total_late: 0,
+    total_leave: 0,
     total_sick: 0,
   });
   const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
@@ -55,7 +56,9 @@ export default function AttendanceHistoryScreen() {
     try {
       const data = await api.getAttendanceHistory(selectedMonth, selectedYear);
       if (data) {
-        setSummary(data.summary || summary);
+        if (data.summary) {
+          setSummary(data.summary);
+        }
         setHistoryList(data.history || []);
       }
     } catch (e) {
@@ -63,7 +66,7 @@ export default function AttendanceHistoryScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [selectedMonth, selectedYear, summary]);
+  }, [selectedMonth, selectedYear]);
 
   useFocusEffect(
     useCallback(() => {
