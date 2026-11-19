@@ -27,7 +27,6 @@ export default function FaceRegistrationScreen() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
-  const [base64Photo, setBase64Photo] = useState<string | null>(null);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'error' | 'success'>('success');
@@ -50,11 +49,9 @@ export default function FaceRegistrationScreen() {
       try {
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.7,
-          base64: true,
         });
         if (photo?.uri) {
           setPreviewUri(photo.uri);
-          setBase64Photo(photo.base64 || null);
         } else {
           throw new Error('Kamera tidak menghasilkan berkas gambar.');
         }
@@ -82,7 +79,7 @@ export default function FaceRegistrationScreen() {
         return;
       }
 
-      const res = await api.registerFacePhoto(previewUri, base64Photo || undefined);
+      const res = await api.registerFacePhoto(previewUri);
       const serverPhotoUrl = res.data?.face_reference_photo_url || previewUri;
 
       if (user) {
@@ -176,10 +173,7 @@ export default function FaceRegistrationScreen() {
               <Image source={{ uri: previewUri }} style={styles.previewImage} />
               <TouchableOpacity
                 style={styles.retakeFloatingBtn}
-                onPress={() => {
-                  setPreviewUri(null);
-                  setBase64Photo(null);
-                }}>
+                onPress={() => setPreviewUri(null)}>
                 <Ionicons name="refresh" size={18} color={Palette.white} />
                 <Text style={styles.retakeText}>Ambil Ulang</Text>
               </TouchableOpacity>

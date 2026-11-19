@@ -1324,7 +1324,7 @@ class ApiClient {
   }
 
   // Face Registration (First Time)
-  async registerFacePhoto(photoUri: string, base64Data?: string): Promise<any> {
+  async registerFacePhoto(photoUri: string): Promise<any> {
     const baseUrl = await this.getBaseUrl();
     const headers = await this.getHeaders(true);
     const formData = new FormData();
@@ -1333,17 +1333,13 @@ class ApiClient {
     const rawExt = uriParts[uriParts.length - 1] || "jpg";
     const fileType = rawExt.toLowerCase().includes("png") ? "png" : "jpg";
     const mimeType = fileType === "png" ? "image/png" : "image/jpeg";
-    const cleanUri = Platform.OS === "ios" ? photoUri.replace("file://", "") : photoUri;
+    const cleanUri = Platform.OS === "android" ? photoUri : photoUri.replace("file://", "");
 
     formData.append("face_photo", {
       uri: cleanUri,
       name: `face_ref_${Date.now()}.${fileType}`,
       type: mimeType,
     } as any);
-
-    if (base64Data) {
-      formData.append("face_photo_base64", base64Data);
-    }
 
     let res: Response;
     try {
