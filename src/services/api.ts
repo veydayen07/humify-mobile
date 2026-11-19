@@ -1071,90 +1071,110 @@ class ApiClient {
     reason: string;
     attachment_uri?: string | null;
   }): Promise<any> {
-    try {
-      const baseUrl = await this.getBaseUrl();
-      const headers = await this.getHeaders(true);
-      const formData = new FormData();
-      formData.append("leave_type_id", String(data.leave_type_id));
-      formData.append("start_date", data.start_date);
-      formData.append("end_date", data.end_date);
-      formData.append("total_days", String(data.total_days));
-      formData.append("reason", data.reason);
+    const baseUrl = await this.getBaseUrl();
+    const token = await StorageService.getToken();
 
-      if (data.attachment_uri) {
-        const uriParts = data.attachment_uri.split(".");
-        const fileType = uriParts[uriParts.length - 1];
-        formData.append("attachment", {
-          uri: data.attachment_uri,
-          name: `attachment_${Date.now()}.${fileType || "jpg"}`,
-          type: "image/jpeg",
-        } as any);
-      }
+    const isRealFile =
+      !!data.attachment_uri &&
+      (data.attachment_uri.startsWith("file://") ||
+        data.attachment_uri.startsWith("content://") ||
+        data.attachment_uri.startsWith("/"));
 
-      const res = await fetch(`${baseUrl}/leaves/requests`, {
-        method: "POST",
-        headers,
-        body: formData,
-      });
-      if (res.ok) {
-        const resJson = await res.json();
-        return resJson;
+    let json: any = null;
+    let statusCode = 200;
+
+    if (isRealFile) {
+      try {
+        let mimeType = "image/jpeg";
+        const lower = data.attachment_uri!.toLowerCase();
+        if (lower.endsWith(".png")) {
+          mimeType = "image/png";
+        } else if (lower.endsWith(".pdf")) {
+          mimeType = "application/pdf";
+        } else if (lower.endsWith(".webp")) {
+          mimeType = "image/webp";
+        }
+
+        const file = new File(data.attachment_uri!);
+        const uploadResult = await file.upload(`${baseUrl}/leaves/requests`, {
+          httpMethod: "POST",
+          uploadType: UploadType.MULTIPART,
+          fieldName: "attachment",
+          mimeType,
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          parameters: {
+            leave_type_id: String(data.leave_type_id),
+            start_date: data.start_date,
+            end_date: data.end_date,
+            total_days: String(data.total_days),
+            reason: data.reason,
+          },
+        });
+
+        statusCode = uploadResult.status;
+        try {
+          json = JSON.parse(uploadResult.body);
+        } catch {
+          // non-JSON response
+        }
+      } catch (networkErr: any) {
+        console.error("Network error during leave submission upload:", networkErr);
+        throw new Error(
+          `Koneksi ke server gagal: ${networkErr.message || "Periksa jaringan internet Anda."}`,
+        );
       }
-    } catch {
-      // Safe fallback below
+    } else {
+      try {
+        const res = await fetch(`${baseUrl}/leaves/requests`, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            leave_type_id: data.leave_type_id,
+            start_date: data.start_date,
+            end_date: data.end_date,
+            total_days: data.total_days,
+            reason: data.reason,
+          }),
+        });
+
+        statusCode = res.status;
+        json = await res.json().catch(() => null);
+      } catch (networkErr: any) {
+        console.error("Network error during leave submission fetch:", networkErr);
+        throw new Error(
+          `Koneksi ke server gagal: ${networkErr.message || "Periksa jaringan internet Anda."}`,
+        );
+      }
     }
 
-    // Persistent Local Fallback: Always succeeds so user can test and use offline!
-    const types = await this.getLeaveTypes();
-    const chosen = types.find((t) => t.id === data.leave_type_id) || {
-      id: data.leave_type_id,
-      name: "Cuti",
-    };
+    if (statusCode >= 200 && statusCode < 300 && json?.success) {
+      return json;
+    }
 
-    const newReq: LeaveRequest = {
-      id: Math.floor(Math.random() * 900) + 100,
-      leave_type: chosen,
-      start_date: data.start_date,
-      end_date: data.end_date,
-      total_days: data.total_days,
-      reason: data.reason,
-      attachment_url: data.attachment_uri || null,
-      status: "pending",
-      rejection_reason: null,
-      created_at: new Date().toISOString().replace("T", " ").substring(0, 19),
-    };
-
-    // Update & persist leaves list
-    const currentStoredLeaves =
-      (await StorageService.getLeaves()) || mockLeaveRequests;
-    const updatedLeaves = [newReq, ...currentStoredLeaves];
-    await StorageService.saveLeaves(updatedLeaves);
-    mockLeaveRequests = updatedLeaves;
-
-    // Deduct & persist leave balances
-    const currentStoredBalances =
-      (await StorageService.getBalances()) || mockLeaveBalances;
-    const updatedBalances = currentStoredBalances.map((b) => {
-      if (b.leave_type_id === data.leave_type_id) {
-        const remaining = Math.max(0, b.remaining_days - data.total_days);
-        const used = b.used_days + data.total_days;
-        return { ...b, remaining_days: remaining, used_days: used };
+    // Handle server error responses
+    let errMsg = "Gagal mengirimkan pengajuan cuti ke server.";
+    if (json?.message) {
+      errMsg = json.message;
+      if (json?.errors) {
+        const errorDetails = Object.values(json.errors).flat().join(", ");
+        if (errorDetails) errMsg += ` (${errorDetails})`;
       }
-      return b;
-    });
-    await StorageService.saveBalances(updatedBalances);
-    mockLeaveBalances = updatedBalances;
+    } else if (statusCode === 401) {
+      errMsg = "Sesi login kedaluwarsa atau token tidak valid. Silakan login ulang.";
+    } else if (statusCode === 422) {
+      errMsg = "Data pengajuan tidak valid. Mohon periksa kembali form pengajuan.";
+    } else if (statusCode) {
+      errMsg = `Server merespons error HTTP ${statusCode}.`;
+    }
 
-    return {
-      success: true,
-      message:
-        "Pengajuan cuti berhasil diajukan dan sedang menunggu persetujuan atasan.",
-      data: {
-        request_id: newReq.id,
-        status: "pending",
-        total_days: data.total_days,
-      },
-    };
+    throw new Error(errMsg);
   }
 
   // 4.5 Cancel Leave Request
@@ -1323,8 +1343,13 @@ class ApiClient {
         const json = await res.json();
         return json;
       }
-    } catch {
-      // Safe fallback below
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.message || `Gagal memproses persetujuan (HTTP ${res.status}).`);
+    } catch (networkOrApiErr: any) {
+      if (networkOrApiErr?.message && !networkOrApiErr.message.includes("Network request failed")) {
+        throw networkOrApiErr;
+      }
+      // Safe fallback below only for true network failure
     }
 
     const item = mockManagerLeaveApprovals.find((r) => r.request_id === id);

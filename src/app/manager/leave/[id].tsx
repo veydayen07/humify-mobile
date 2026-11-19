@@ -36,8 +36,8 @@ export default function ManagerLeaveDetailScreen() {
   useEffect(() => {
     async function loadItem() {
       try {
-        const list = await api.getManagerLeaveApprovals();
-        const found = list.find((i) => String(i.request_id) === String(id)) || list[0];
+        const list = await api.getManagerLeaveApprovals('all');
+        const found = list.find((i) => String(i.request_id) === String(id));
         setItem(found || null);
       } catch (e) {
         console.warn('Error loading leave detail:', e);
