@@ -1250,6 +1250,43 @@ class ApiClient {
 
   // Face Registration (First Time)
   async registerFacePhoto(photoUri: string): Promise<any> {
+    try {
+      const baseUrl = await this.getBaseUrl();
+      const headers = await this.getHeaders(true);
+      const formData = new FormData();
+
+      const uriParts = photoUri.split(".");
+      const fileType = uriParts[uriParts.length - 1] || "jpg";
+      formData.append("face_photo", {
+        uri: photoUri,
+        name: `face_ref_${Date.now()}.${fileType}`,
+        type: `image/${fileType === "jpg" ? "jpeg" : fileType}`,
+      } as any);
+
+      const res = await fetch(`${baseUrl}/profile/face-reference`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const serverPhotoUrl = json.data?.face_reference_photo_url || photoUri;
+
+        const user = await StorageService.getUser();
+        if (user && user.employee) {
+          user.employee.face_registered = true;
+          user.employee.photo_url = serverPhotoUrl;
+          await StorageService.setUser(user);
+          await StorageService.setFaceReference(photoUri);
+        }
+
+        return json;
+      }
+    } catch (err) {
+      console.warn("Failed to upload face reference to server, fallback local:", err);
+    }
+
     const user = await StorageService.getUser();
     if (user && user.employee) {
       user.employee.face_registered = true;
